@@ -110,6 +110,9 @@
       <span>
         <a @click="help">{{ $t("sidebar.help") }}</a>
       </span>
+      <span>
+        <router-link to="/version" @click="closeHovers">版本信息</router-link>
+      </span>
     </p>
   </nav>
 </template>

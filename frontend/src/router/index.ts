@@ -117,6 +117,17 @@ const routes = [
     ],
   },
   {
+    path: "/version",
+    name: "Version",
+    component: Layout,
+    children: [
+      {
+        path: "",
+        component: () => import("@/views/Version.vue"),
+      },
+    ],
+  },
+  {
     path: "/403",
     name: "Forbidden",
     component: Errors,

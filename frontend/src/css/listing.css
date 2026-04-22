@@ -281,3 +281,101 @@ html[dir="rtl"] #listing {
 #listing #multiple-selection i {
   color: var(--iconSecondary);
 }
+
+/* ============================================================
+   mosaic2col — 2 columns, large image, compact filename
+   ============================================================ */
+#listing.mosaic2col {
+  padding-top: 0.5em;
+  margin: 0 -0.25em;
+}
+
+#listing.mosaic2col > div {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+#listing.mosaic2col .item {
+  width: calc(50% - 0.5em);
+  margin: 0.25em;
+  padding: 0;
+  border-radius: 0.5em;
+  overflow: hidden;
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.1),
+    0 1px 2px rgba(0, 0, 0, 0.12);
+  flex-direction: column;
+  align-items: stretch;
+  position: relative;
+  min-height: 8em;
+}
+
+#listing.mosaic2col .item:hover {
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    0 2px 4px rgba(0, 0, 0, 0.2) !important;
+  transform: translateY(-1px);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+#listing.mosaic2col .header {
+  display: none;
+}
+
+/* Image / icon area takes full width */
+#listing.mosaic2col .item div:first-of-type {
+  width: 100%;
+  height: 12em;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+#listing.mosaic2col .item div:first-of-type img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  margin: 0;
+  vertical-align: bottom;
+}
+
+#listing.mosaic2col .item div:first-of-type i {
+  width: 100%;
+  font-size: 5em;
+  margin: 0;
+  text-align: center;
+  line-height: 2.4em;
+}
+
+/* Text area below image */
+#listing.mosaic2col .item div:last-of-type {
+  width: 100%;
+  padding: 0.3em 0.5em;
+  background: var(--surfacePrimary);
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+/* Clear the inherited surfacePrimary background when item is selected */
+#listing.mosaic2col .item[aria-selected="true"] div:last-of-type {
+  background: transparent;
+}
+
+/* Add a visible border/outline indicator on the image for selection */
+#listing.mosaic2col .item[aria-selected="true"] div:first-of-type {
+  outline: 3px solid var(--blue);
+  outline-offset: -3px;
+}
+
+#listing.mosaic2col .item .name {
+  font-size: 0.72em;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  line-height: 1.4;
+}
+
+#listing.mosaic2col .item .size,
+#listing.mosaic2col .item .modified {
+  display: none;
+}

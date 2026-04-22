@@ -235,6 +235,11 @@ user created with the credentials from options "username" and "password".`,
 			panic(err)
 		}
 
+		// Initialize RAW image cache (direct sips integration)
+		if err := fbhttp.InitRawCache(""); err != nil {
+			log.Printf("Warning: failed to initialize RAW cache: %v", err)
+		}
+
 		handler, err := fbhttp.NewHandler(imageService, fileCache, uploadCache, st.Storage, server, assetsFs)
 		if err != nil {
 			return err

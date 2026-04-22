@@ -73,6 +73,12 @@ export async function put(url: string, content = "") {
   return resourceAction(url, "PUT", content);
 }
 
+export async function exif(url: string) {
+  url = removePrefix(url);
+  const res = await fetchURL(`/api/exif${url}`, {});
+  return res.json();
+}
+
 export function download(format: any, ...files: string[]) {
   let url = `${baseURL}/api/raw`;
 

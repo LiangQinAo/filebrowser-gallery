@@ -54,6 +54,16 @@
           @action="layoutStore.toggleShell"
         />
         <action
+          icon="filter_alt"
+          :label="t('buttons.filter')"
+          @action="showFilter = true"
+        />
+        <action
+          icon="sort"
+          :label="t('files.sortBy')"
+          @action="showSort = true"
+        />
+        <action
           :icon="viewIcon"
           :label="t('buttons.switchView')"
           @action="switchView"
@@ -80,6 +90,16 @@
         />
       </template>
     </header-bar>
+
+    <!-- Sort bottom sheet -->
+    <sort-sheet
+      :visible="showSort"
+      @close="showSort = false"
+      @sort="handleSort"
+    />
+
+    <!-- Filter bottom sheet -->
+    <filter-sheet :visible="showFilter" @close="showFilter = false" />
 
     <div
       v-if="isMobile"
@@ -254,6 +274,7 @@
             v-bind:type="item.type"
             v-bind:size="item.size"
             v-bind:path="item.path"
+            @open-lightbox="openLightbox"
           >
           </item>
         </div>
@@ -336,6 +357,17 @@
         </div>
       </div>
     </template>
+
+    <!-- Gallery Lightbox -->
+    <gallery-lightbox
+      :images="lightboxImages"
+      :start-index="lightboxStartIndex"
+      :visible="lightboxVisible"
+      :multiple-mode="fileStore.multiple"
+      :selected-indices="fileStore.selected"
+      @close="lightboxVisible = false"
+      @toggle-select="toggleSelectInLightbox"
+    />
   </div>
 </template>
 
@@ -357,6 +389,9 @@ import Action from "@/components/header/Action.vue";
 import Search from "@/components/Search.vue";
 import Item from "@/components/files/ListingItem.vue";
 import ContextMenu from "@/components/ContextMenu.vue";
+import GalleryLightbox from "@/components/files/GalleryLightbox.vue";
+import SortSheet from "@/components/SortSheet.vue";
+import FilterSheet from "@/components/FilterSheet.vue";
 import {
   computed,
   inject,
@@ -378,6 +413,25 @@ const width = ref<number>(window.innerWidth);
 const itemWeight = ref<number>(0);
 const isContextMenuVisible = ref<boolean>(false);
 const contextMenuPos = ref<{ x: number; y: number }>({ x: 0, y: 0 });
+
+// Sort & Filter sheet state
+const showSort = ref<boolean>(false);
+const showFilter = ref<boolean>(false);
+
+// Lightbox state
+const lightboxVisible = ref<boolean>(false);
+const lightboxStartIndex = ref<number>(0);
+const lightboxImages = computed(() =>
+  items.value.files
+    .filter((f) => f.type === "image")
+    .map((f) => ({
+      name: f.name,
+      path: f.path,
+      modified: f.modified,
+      resolution: f.resolution,
+      index: f.index, // global index for multi-select tracking
+    }))
+);
 
 const $showError = inject<IToastError>("$showError")!;
 
@@ -418,8 +472,19 @@ const dirs = computed(() => items.value.dirs.slice(0, showLimit.value));
 const items = computed(() => {
   const dirs: any[] = [];
   const files: any[] = [];
+  const filter = fileStore.typeFilter;
 
   fileStore.req?.items.forEach((item) => {
+    // If filtering by type, filter out files that don't match (directories are kept if not explicitly filtered out, though you can choose to hide/show dirs based on your logic. Usually typeFilter applies only to files, so we check `!item.isDir`)
+    if (filter !== "all" && !item.isDir && item.type !== filter) {
+      return;
+    }
+    // If the user *only* wants to see files of a type, do we hide directories?
+    // The prompt says "只想看图片文件...全局文件夹生效", typically keeping directories so they can still navigate. But let's hide folders too unless it's "all" to be strict about "只想看图片文件".
+    if (filter !== "all" && item.isDir) {
+      return;
+    }
+
     if (item.isDir) {
       dirs.push(item);
     } else {
@@ -463,14 +528,15 @@ const modifiedIcon = computed(() => {
 });
 
 const viewIcon = computed(() => {
-  const icons = {
+  const icons: Record<ViewModeType, string> = {
     list: "view_module",
     mosaic: "grid_view",
-    "mosaic gallery": "view_list",
+    "mosaic gallery": "grid_on",
+    mosaic2col: "view_list",
   };
   return authStore.user === null
     ? icons["list"]
-    : icons[authStore.user.viewMode];
+    : (icons[authStore.user.viewMode] ?? "view_module");
 });
 
 const headerButtons = computed(() => {
@@ -952,6 +1018,43 @@ const openSearch = () => {
   layoutStore.showHover("search");
 };
 
+const openLightbox = (fileIndex: number) => {
+  // Find the image's position in the image-only list
+  const imageFiles = items.value.files.filter((f) => f.type === "image");
+  const file = items.value.files.find((f) => f.index === fileIndex);
+  if (!file) return;
+  const imgIdx = imageFiles.findIndex((f) => f.index === fileIndex);
+  if (imgIdx === -1) return;
+  lightboxStartIndex.value = imgIdx;
+  lightboxVisible.value = true;
+};
+
+// Toggle selection of an image from within the lightbox (multi-select mode)
+const toggleSelectInLightbox = (index: number) => {
+  const before = [...fileStore.selected];
+  if (fileStore.selected.includes(index)) {
+    fileStore.removeSelected(index);
+  } else {
+    fileStore.selected.push(index);
+  }
+  console.log(
+    `[FileListing] toggleSelectInLightbox: index=${index}, before=${JSON.stringify(before)}, after=${JSON.stringify(fileStore.selected)}`
+  );
+};
+
+const handleSort = async (by: string, asc: boolean) => {
+  try {
+    if (authStore.user?.id) {
+      await users.update({ id: authStore.user?.id, sorting: { by, asc } }, [
+        "sorting",
+      ]);
+    }
+  } catch (e: any) {
+    $showError(e);
+  }
+  fileStore.reload = true;
+};
+
 const toggleMultipleSelection = () => {
   fileStore.toggleMultiple();
   layoutStore.closeHovers();
@@ -1005,10 +1108,11 @@ const download = () => {
 const switchView = async () => {
   layoutStore.closeHovers();
 
-  const modes = {
+  const modes: Record<ViewModeType, ViewModeType> = {
     list: "mosaic",
     mosaic: "mosaic gallery",
-    "mosaic gallery": "list",
+    "mosaic gallery": "mosaic2col",
+    mosaic2col: "list",
   };
 
   const data = {

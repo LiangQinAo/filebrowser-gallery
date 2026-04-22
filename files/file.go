@@ -15,9 +15,11 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -299,6 +301,18 @@ func calculateImageResolution(fSys afero.Fs, filePath string) (*ImageResolution,
 
 	config, _, err := image.DecodeConfig(file)
 	if err != nil {
+		// If decoding fails, check if it's a RAW file and try to find resolution from embedded preview
+		// Read enough to check magic bytes
+		data := make([]byte, 512)
+		n, _ := file.Read(data)
+		ext := strings.ToLower(filepath.Ext(filePath))
+		if isRawFile(data[:n]) || ext == ".arw" || ext == ".cr2" || ext == ".nef" || ext == ".dng" {
+			// Try to get resolution using sips
+			res, err := getRawResolution(filePath)
+			if err == nil {
+				return res, nil
+			}
+		}
 		return nil, err
 	}
 
@@ -437,7 +451,12 @@ func (i *FileInfo) readListing(checker rules.Checker, readHeader bool, calcImgRe
 			currentDir: dir,
 		}
 
-		if !file.IsDir && strings.HasPrefix(mime.TypeByExtension(file.Extension), "image/") && calcImgRes {
+		ext := strings.ToLower(file.Extension)
+		isImage := strings.HasPrefix(mime.TypeByExtension(ext), "image/") ||
+			ext == ".arw" || ext == ".cr2" || ext == ".nef" || ext == ".dng" || ext == ".orf" || ext == ".raf" ||
+			ext == ".sr2" || ext == ".srf" || ext == ".cr3" || ext == ".nrw" || ext == ".rw2" || ext == ".rwl" || ext == ".pef" || ext == ".x3f"
+
+		if !file.IsDir && isImage && calcImgRes {
 			resolution, err := calculateImageResolution(file.Fs, file.Path)
 			if err != nil {
 				log.Printf("Error calculating resolution for image %s: %v", file.Path, err)
@@ -466,4 +485,44 @@ func (i *FileInfo) readListing(checker rules.Checker, readHeader bool, calcImgRe
 
 	i.Listing = listing
 	return nil
+}
+
+func isRawFile(data []byte) bool {
+	if len(data) < 4 {
+		return false
+	}
+	// TIFF containers (ARW, CR2, NEF, DNG)
+	if (data[0] == 'I' && data[1] == 'I' && data[2] == '*') ||
+		(data[0] == 'M' && data[1] == 'M' && data[2] == 0x00 && data[3] == '*') {
+		return true
+	}
+	return false
+}
+func getRawResolution(filePath string) (*ImageResolution, error) {
+	out, err := exec.Command("sips", "-g", "pixelWidth", "-g", "pixelHeight", filePath).Output()
+	if err != nil {
+		return nil, err
+	}
+	s := string(out)
+	width := 0
+	height := 0
+	lines := strings.Split(s, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "pixelWidth:") {
+			parts := strings.Split(line, ":")
+			if len(parts) > 1 {
+				width, _ = strconv.Atoi(strings.TrimSpace(parts[1]))
+			}
+		}
+		if strings.Contains(line, "pixelHeight:") {
+			parts := strings.Split(line, ":")
+			if len(parts) > 1 {
+				height, _ = strconv.Atoi(strings.TrimSpace(parts[1]))
+			}
+		}
+	}
+	if width > 0 && height > 0 {
+		return &ImageResolution{Width: width, Height: height}, nil
+	}
+	return nil, errors.New("could not parse sips output")
 }

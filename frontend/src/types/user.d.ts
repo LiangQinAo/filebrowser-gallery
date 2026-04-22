@@ -17,7 +17,7 @@ interface IUser {
   aceEditorTheme: string;
 }
 
-type ViewModeType = "list" | "mosaic" | "mosaic gallery";
+type ViewModeType = "list" | "mosaic" | "mosaic gallery" | "mosaic2col";
 
 interface IUserForm {
   id?: number;

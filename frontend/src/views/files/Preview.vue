@@ -1,5 +1,24 @@
 <template>
+  <!-- Image preview via PhotoSwipe -->
+  <template v-if="isImage">
+    <div class="loading delayed" v-if="listing === null">
+      <div class="spinner">
+        <div class="bounce1"></div>
+        <div class="bounce2"></div>
+        <div class="bounce3"></div>
+      </div>
+    </div>
+    <gallery-lightbox
+      v-else
+      :images="lightboxImages"
+      :start-index="lightboxStartIndex"
+      :visible="lightboxImages.length > 0"
+      @close="close()"
+    />
+  </template>
+  <!-- Non-image preview -->
   <div
+    v-else
     id="previewer"
     @touchmove.prevent.stop
     @wheel.prevent.stop
@@ -192,6 +211,7 @@ import { throttle } from "lodash-es";
 import HeaderBar from "@/components/header/HeaderBar.vue";
 import Action from "@/components/header/Action.vue";
 import ExtendedImage from "@/components/files/ExtendedImage.vue";
+import GalleryLightbox from "@/components/files/GalleryLightbox.vue";
 import VideoPlayer from "@/components/files/VideoPlayer.vue";
 import CsvViewer from "@/components/files/CsvViewer.vue";
 import { VueReader } from "vue-reader";
@@ -317,6 +337,26 @@ const isCsv = computed(
 );
 
 const isResizeEnabled = computed(() => resizePreview);
+
+const isImage = computed(() => fileStore.req?.type === "image");
+
+const lightboxImages = computed(() => {
+  if (!listing.value) return [];
+  return listing.value
+    .filter((item) => item.type === "image")
+    .map((item) => ({
+      name: item.name,
+      path: item.path,
+      modified: item.modified,
+    }));
+});
+
+const lightboxStartIndex = computed(() => {
+  if (!listing.value) return 0;
+  const images = listing.value.filter((item) => item.type === "image");
+  const idx = images.findIndex((item) => item.name === name.value);
+  return Math.max(0, idx);
+});
 
 const subtitles = computed(() => {
   if (fileStore.req?.subtitles) {

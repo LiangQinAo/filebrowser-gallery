@@ -23,6 +23,13 @@
         {{ resolution.width }} x {{ resolution.height }}
       </div>
 
+      <div v-if="exifData && Object.keys(exifData).length > 0" class="exif-data" style="margin-top: 1em;">
+         <h3 style="margin: 0 0 0.5em 0; font-size: 1.1em; border-bottom: 1px solid #eee; padding-bottom: 0.25em;">EXIF 信息</h3>
+         <p v-for="(val, key) in exifData" :key="key" style="margin-bottom: 0.3em; font-size: 0.95em;">
+            <strong>{{ key }}:</strong> {{ val }}
+         </p>
+      </div>
+
       <p v-if="selected.length < 2" :title="modTime">
         <strong>{{ $t("prompts.lastModified") }}:</strong> {{ humanTime }}
       </p>
@@ -110,6 +117,14 @@ import { files as api } from "@/api";
 export default {
   name: "info",
   inject: ["$showError"],
+  data: function() {
+    return {
+      exifData: null,
+    };
+  },
+  mounted: function() {
+    this.fetchExif();
+  },
   computed: {
     ...mapState(useFileStore, [
       "req",
@@ -173,7 +188,7 @@ export default {
   },
   methods: {
     ...mapActions(useLayoutStore, ["closeHovers"]),
-    checksum: async function (event, algo) {
+    async checksum(event, algo) {
       event.preventDefault();
 
       let link;
@@ -189,6 +204,27 @@ export default {
         event.target.textContent = hash;
       } catch (e) {
         this.$showError(e);
+      }
+    },
+    async fetchExif() {
+      // Only fetch IF a single image is being inspected
+      let link = "";
+      if (this.selectedCount === 1) {
+        const item = this.req.items[this.selected[0]];
+        if (item && item.type === "image") {
+          link = item.url;
+        }
+      } else if (this.req && this.req.type === "image") {
+        link = this.$route.path;
+      }
+
+      if (link) {
+        try {
+          const res = await api.exif(link);
+          this.exifData = res;
+        } catch(e) {
+          console.error("Failed to load EXIF", e);
+        }
       }
     },
   },

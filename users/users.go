@@ -14,8 +14,10 @@ import (
 type ViewMode string
 
 const (
-	ListViewMode   ViewMode = "list"
-	MosaicViewMode ViewMode = "mosaic"
+	ListViewMode        ViewMode = "list"
+	MosaicViewMode      ViewMode = "mosaic"
+	MosaicGalleryMode   ViewMode = "mosaic gallery"
+	Mosaic2ColViewMode  ViewMode = "mosaic2col"
 )
 
 // User describes a user.

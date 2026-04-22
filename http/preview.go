@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -88,6 +89,19 @@ func handleImagePreview(
 	if errors.Is(err, img.ErrUnsupportedFormat) || format == img.FormatGif {
 		return rawFileHandler(w, r, file)
 	}
+
+	if format == img.FormatRaw {
+		data, err := GetRawPreview(file.RealPath(), previewSize)
+		if err == nil {
+			w.Header().Set("Cache-Control", "private")
+			w.Header().Set("Content-Type", "image/jpeg")
+			w.Write(data)
+			return 0, nil
+		}
+		log.Printf("raw conversion failed for %s: %v", file.Path, err)
+		// Fallback to older logic if conversion fails
+	}
+
 	if err != nil {
 		return errToStatus(err), err
 	}
@@ -126,9 +140,9 @@ func createPreview(imgSvc ImgService, fileCache FileCache,
 
 	switch previewSize {
 	case PreviewSizeBig:
-		width = 1080
-		height = 1080
-		options = append(options, img.WithMode(img.ResizeModeFit), img.WithQuality(img.QualityMedium))
+		width = 1920
+		height = 1920
+		options = append(options, img.WithMode(img.ResizeModeFit), img.WithQuality(img.QualityHigh))
 	case PreviewSizeThumb:
 		width = 256
 		height = 256

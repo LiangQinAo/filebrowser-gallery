@@ -79,6 +79,10 @@ const props = defineProps<{
   path?: string;
 }>();
 
+const emit = defineEmits<{
+  (e: "open-lightbox", index: number): void;
+}>();
+
 const authStore = useAuthStore();
 const fileStore = useFileStore();
 const layoutStore = useLayoutStore();
@@ -238,6 +242,16 @@ const drop = async (event: Event) => {
   action(false, false);
 };
 
+// Helper: open file or show lightbox for images
+const openOrLightbox = () => {
+  // Allow lightbox even in multiple selection mode — double-click opens preview
+  if (props.type === "image" && !props.isDir && !props.readOnly) {
+    emit("open-lightbox", props.index);
+  } else {
+    open();
+  }
+};
+
 const itemClick = (event: Event | KeyboardEvent) => {
   // If long press was triggered, prevent normal click behavior
   if (longPressTriggered.value) {
@@ -251,9 +265,9 @@ const itemClick = (event: Event | KeyboardEvent) => {
     !(event as KeyboardEvent).metaKey &&
     !(event as KeyboardEvent).shiftKey &&
     !fileStore.multiple
-  )
-    open();
-  else click(event);
+  ) {
+    openOrLightbox();
+  } else click(event);
 };
 
 const contextMenu = (event: MouseEvent) => {
@@ -277,7 +291,8 @@ const click = (event: Event | KeyboardEvent) => {
 
   touches.value++;
   if (touches.value > 1) {
-    open();
+    openOrLightbox();
+    return; // don't toggle selection state on double-click
   }
 
   if (fileStore.selected.indexOf(props.index) !== -1) {

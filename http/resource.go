@@ -29,6 +29,7 @@ var resourceGetHandler = withUser(func(w http.ResponseWriter, r *http.Request, d
 		Modify:     d.user.Perm.Modify,
 		Expand:     true,
 		ReadHeader: d.server.TypeDetectionByHeader,
+		CalcImgRes: true,
 		Checker:    d,
 		Content:    d.user.Perm.Download,
 	})

@@ -598,6 +598,16 @@ var types = map[string]string{
 	".mpd":       "application/dash+xml",
 	".webp":      "image/webp",
 	".epub":      "application/epub+zip",
+	".arw":       "image/x-sony-arw",
+	".cr2":       "image/x-canon-cr2",
+	".cr3":       "image/x-canon-cr3",
+	".nef":       "image/x-nikon-nef",
+	".nrw":       "image/x-nikon-nrw",
+	".orf":       "image/x-olympus-orf",
+	".raf":       "image/x-fuji-raf",
+	".raw":       "image/x-panasonic-raw",
+	".rw2":       "image/x-panasonic-rw2",
+	".dng":       "image/x-adobe-dng",
 }
 
 func init() {

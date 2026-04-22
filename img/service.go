@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"strings"
 
 	"github.com/disintegration/imaging"
 	"github.com/dsoprea/go-exif/v3"
@@ -47,6 +48,7 @@ png
 gif
 tiff
 bmp
+raw
 )
 */
 type Format int
@@ -99,6 +101,14 @@ fill
 type ResizeMode int
 
 func (s *Service) FormatFromExtension(ext string) (Format, error) {
+	rawExts := map[string]bool{
+		".arw": true, ".cr2": true, ".cr3": true, ".nef": true, ".nrw": true,
+		".orf": true, ".raf": true, ".raw": true, ".rw2": true, ".dng": true,
+	}
+	if rawExts[strings.ToLower(ext)] {
+		return FormatRaw, nil
+	}
+
 	format, err := imaging.FormatFromExtension(ext)
 	if err != nil {
 		return -1, ErrUnsupportedFormat
@@ -115,6 +125,7 @@ func (s *Service) FormatFromExtension(ext string) (Format, error) {
 	case imaging.BMP:
 		return FormatBmp, nil
 	}
+
 	return -1, ErrUnsupportedFormat
 }
 
@@ -153,6 +164,20 @@ func (s *Service) Resize(ctx context.Context, in io.Reader, width, height int, o
 	format, wrappedReader, err := s.detectFormat(in)
 	if err != nil {
 		return err
+	}
+
+	if format == FormatRaw {
+		// For RAW files, extract the embedded JPEG preview
+		preview, _, errRaw := s.extractRawPreview(wrappedReader)
+		if errRaw == nil {
+			// Do not attempt to use Go's image decoder to resize the extracted JPEG.
+			// Camera manufacturer embedded JPEGs often contain makers notes or non-standard
+			// markers that cause 'invalid JPEG format: unknown marker' in Go.
+			// Browsers have tolerant native decoders, so we serve the embedded preview as-is.
+			_, err := out.Write(preview)
+			return err
+		}
+		return fmt.Errorf("failed to extract RAW preview: %w", errRaw)
 	}
 
 	config := resizeConfig{
@@ -198,6 +223,11 @@ func (s *Service) detectFormat(in io.Reader) (Format, io.Reader, error) {
 
 	imgConfig, imgFormat, err := image.DecodeConfig(r)
 	if err != nil {
+		// Check for RAW signatures if standard decode fails
+		bufBytes := buf.Bytes()
+		if isRaw(bufBytes) {
+			return FormatRaw, io.MultiReader(buf, in), nil
+		}
 		return 0, nil, fmt.Errorf("%s: %w", err.Error(), ErrUnsupportedFormat)
 	}
 
@@ -256,4 +286,55 @@ func getEmbeddedThumbnail(in io.Reader) ([]byte, io.Reader, error) {
 
 	thm, err := ifd.Thumbnail()
 	return thm, wrappedReader, err
+}
+
+func (s *Service) extractRawPreview(in io.Reader) ([]byte, io.Reader, error) {
+	buf := &bytes.Buffer{}
+	r := io.TeeReader(in, buf)
+	wrappedReader := io.MultiReader(buf, in)
+
+	// Read enough to find EXIF/Previews (limit to 2MB for safety, though previews can be larger)
+	// Some RAW files have previews at the end, but most are near the beginning.
+	data := make([]byte, 2*1024*1024)
+	n, _ := io.ReadFull(r, data)
+	data = data[:n]
+
+	// Use existing getEmbeddedThumbnail logic but potentially expanded
+	// For now, reuse it as it already uses go-exif to find thumbnails/previews
+	preview, _, err := getEmbeddedThumbnail(bytes.NewReader(data))
+	if err == nil {
+		return preview, wrappedReader, nil
+	}
+
+	// Fallback: search for JPEG markers in the first 2MB
+	// JPEG starts with FF D8 and ends with FF D9
+	start := bytes.Index(data, []byte{0xff, 0xd8})
+	if start != -1 {
+		end := bytes.LastIndex(data[start:], []byte{0xff, 0xd9})
+		if end != -1 {
+			return data[start : start+end+2], wrappedReader, nil
+		}
+	}
+
+	return nil, wrappedReader, fmt.Errorf("no preview found")
+}
+
+func isRaw(data []byte) bool {
+	if len(data) < 16 {
+		return false
+	}
+	// TIFF containers (ARW, CR2, NEF, DNG)
+	if (data[0] == 'I' && data[1] == 'I' && data[2] == '*') ||
+		(data[0] == 'M' && data[1] == 'M' && data[2] == 0x00 && data[3] == '*') {
+		return true
+	}
+	// CR3 (ISO BMFF)
+	if bytes.Contains(data[:16], []byte("ftypcrx ")) {
+		return true
+	}
+	// RAF
+	if bytes.HasPrefix(data, []byte("FUJIFILMCCD-RAW ")) {
+		return true
+	}
+	return false
 }
