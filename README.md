@@ -1,32 +1,37 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/filebrowser/filebrowser/master/branding/banner.png" width="550"/>
-</p>
+# filebrowser-gallery
 
-[![Build](https://github.com/filebrowser/filebrowser/actions/workflows/ci.yaml/badge.svg)](https://github.com/filebrowser/filebrowser/actions/workflows/ci.yaml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/filebrowser/filebrowser/v2)](https://goreportcard.com/report/github.com/filebrowser/filebrowser/v2)
-[![Version](https://img.shields.io/github/release/filebrowser/filebrowser.svg)](https://github.com/filebrowser/filebrowser/releases/latest)
+> A high-performance NAS media gallery, forked and enhanced from [filebrowser/filebrowser](https://github.com/filebrowser/filebrowser).
 
-File Browser provides a file managing interface within a specified directory and it can be used to upload, delete, preview and edit your files. It is a **create-your-own-cloud**-kind of software where you can just install it on your server, direct it to a path and access your files through a nice web interface.
+## ✨ Enhancements over upstream
 
-## Documentation
+- **Media Gallery View** — iOS-style fullscreen gallery with smooth PhotoSwipe gestures (pinch-to-zoom, swipe navigation)
+- **RAW Image Support** — Preview RAW camera formats (`.dng`, `.raf`, `.arw`, etc.) via macOS `sips` fallback
+- **EXIF Metadata Panel** — Display photo metadata (camera model, aperture, shutter speed, GPS, etc.) in the Info panel
+- **Mobile-Friendly UI** — Bottom sheet filter/sort panels optimized for touch devices
+- **Non-Interruptive Deletion** — Delete images directly from within the gallery viewer without closing the lightbox
+- **Selective Batch Operations** — Multi-select images in gallery view for batch actions
+- **Version API** — `/api/version` endpoint exposing build version info
 
-Documentation on how to install, configure, and contribute to this project is hosted at [filebrowser.org](https://filebrowser.org).
+## 🔗 Upstream
 
-## Project Status
+This project is based on [File Browser](https://github.com/filebrowser/filebrowser) (Apache 2.0).  
+Original upstream branch is preserved as `upstream/master` for easy diff and rebase.
 
-This project is a finished product which fulfills its goal: be a single binary web File Browser which can be run by anyone anywhere. That means that File Browser is currently on **maintenance-only** mode. Therefore, please note the following:
+## 🚀 Quick Start
 
-- It can take a while until someone gets back to you. Please be patient.
-- [Issues](https://github.com/filebrowser/filebrowser/issues) are meant to track bugs. Unrelated issues will be converted into [discussions](https://github.com/filebrowser/filebrowser/discussions).
-- The priority is triaging issues, addressing security issues and reviewing pull requests meant to solve bugs.
-- No new features are planned. Pull requests for new features are not guaranteed to be reviewed.
+```bash
+# Build frontend
+cd frontend && pnpm install && pnpm build
 
-Please read [@hacdias' personal reflection](https://hacdias.com/2026/03/11/filebrowser/) on the project status.
+# Build binary
+go build -o filebrowser .
 
-## Contributing
+# Run
+./filebrowser --config config/settings.json
+```
 
-Contributions are always welcome. To start contributing to this project, read our [guidelines](CONTRIBUTING.md) first.
+Or use the provided Docker Compose setup in [nas-deployment](https://github.com/LiangQinAo/nas-deployment).
 
 ## License
 
-[Apache License 2.0](LICENSE) © File Browser Contributors
+[Apache License 2.0](LICENSE) — Original © File Browser Contributors, enhancements © LiangQinAo
